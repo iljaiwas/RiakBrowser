@@ -1,3 +1,29 @@
+#About Riak Browser
+
+This is a basic OS X utility for interacting with the [Riak](http://basho.com/riak/) database.
+
+##What Riak Browser lets you do:
+
+* Store objects in a Riak database
+* Retrieve objects stored in a Riak database
+* Add and view secondary indexes
+* Find stored object using secondary indexes
+
+## What do I need to run it
+
+* Xcode (I used 4.6.1, but older versions should be fine, too)
+* Mac OS X 10.7 and up (the project's base SDK is set to 10.8, mainly because I couldn't get the current AFNetworking source to compile with the 10.7 SDK)
+* a working [CocoaPods](http://docs.cocoapods.org/guides/installing_cocoapods.html) installation (perform a 'pod install' after checkout)
+
+
+## What's still missing
+
+* Support for Riak's full text search
+* Syntax coloring for content text view (JSON and XML)
+
+
+# Working with Riak
+
 ## Installing Riak on OS X
 
 You can install the latest version of Riak (right now 1.3) through with Homebrew.
@@ -7,7 +33,7 @@ You can install the latest version of Riak (right now 1.3) through with Homebrew
 
 ## Starting Riak
 
-You should definitely increase the number of maximum allowed open files before starting risk, especially once you changed the storage engine to LevelDB (required for 'Secondary Index' feature.
+You should definitely increase the number of maximum allowed open files before starting risk, especially once you changed the storage engine to LevelDB (required to use Riak's 'Secondary Index' feature).
 
 * ulimit -n 4096
 * riak start
