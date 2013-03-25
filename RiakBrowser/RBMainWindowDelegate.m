@@ -65,8 +65,9 @@
 {
 	[[self httpClientFromCurrentRequestParameters]getPath:[self pathFromCurrentRequestParameters]
 											   parameters:nil
-												  success:^(AFHTTPRequestOperation *operation, id responseObject) {
+												  success:^(AFHTTPRequestOperation *operation, id responseObject){
 													  [self updateInterfaceWithHTTPResponse:[operation response]];
+													  [self updateSecondaryIndexesFromHTTPResponse:[operation response]];
 													  
 													  NSString *receivedString = [[NSString alloc] initWithData:responseObject encoding:NSUTF8StringEncoding];
 													  if (receivedString)
@@ -102,7 +103,7 @@
 - (void) updateInterfaceWithHTTPResponse:(NSHTTPURLResponse*) inResponse
 {
 	self.lastStatusCode = [inResponse statusCode];
-	self.lastErrorMessage = @"";
+	self.lastErrorMessage = @"";	
 }
 
 - (void) updateInterfaceWithError:(NSError*) inError HTTPResponse:(NSHTTPURLResponse*) inResponse
@@ -150,6 +151,32 @@
 - (IBAction)clearSecondaryIndexes:(id)sender
 {
 	self.requestParameters[@"secondaryIndexes"] = [NSMutableArray array];
+}
+
+- (void) updateSecondaryIndexesFromHTTPResponse:(NSHTTPURLResponse*) inResponse
+{
+	self.requestParameters[@"secondaryIndexes"] = [NSMutableArray array];
+	
+	for (NSString *headerName in inResponse.allHeaderFields)
+	{
+		if ([[headerName lowercaseString] hasPrefix:@"x-riak-index-"])
+		{
+			NSString *keyType;
+			NSString *keyName;
+			
+			keyName = [headerName substringFromIndex:[@"x-riak-index-" length]];
+			keyType = [keyName substringFromIndex:keyName.length - 3]; // extract either 'bin' or 'int' suffix
+			keyName = [keyName substringToIndex:keyName.length - 4];  // get rid off '_bin' or '_int' sufix
+			
+			NSMutableDictionary *indexDescription = [NSMutableDictionary dictionary];
+
+			indexDescription[@"name"] = keyName;
+			indexDescription[@"value"] = inResponse.allHeaderFields[headerName];
+			indexDescription[@"type"] = [keyType isEqualToString:@"bin"] ? @"Binary" : @"Integer";
+			
+			[self.secondaryIndexesController addObject:indexDescription];
+		}
+	}
 }
 
 @end
