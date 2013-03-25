@@ -18,6 +18,10 @@
 @property (strong) NSString				*lastErrorMessage;
 
 @property (weak) IBOutlet NSArrayController *secondaryIndexesController;
+@property (weak) IBOutlet NSPopover			*searchResultsPopover;
+@property (weak) IBOutlet NSArrayController	*searchResultsController;
+@property (weak) IBOutlet NSButton			*keySearchButton;
+@property (weak) IBOutlet NSTableView		*searchResultsTableView;
 
 @end
 
@@ -39,10 +43,15 @@
     return self;
 }
 
+- (void) awakeFromNib
+{
+	[self.searchResultsTableView setTarget:self];
+	[self.searchResultsTableView setDoubleAction:@selector(getObjectForSelectedSearchResult:)];
+}
+
 - (IBAction)putAction:(id)sender
 {
 	AFHTTPClient *client = [self httpClientFromCurrentRequestParameters];
-	
 	NSMutableURLRequest *request = [client requestWithMethod:@"PUT" path:[self pathFromCurrentRequestParameters] parameters:nil];
 	
 	if ([self.requestParameters[@"content"] string])
@@ -88,6 +97,17 @@
 {
 	return [NSString stringWithFormat:@"riak/%@/%@", self.requestParameters[@"bucket"], self.requestParameters[@"key"]];
 }
+
+- (NSString*) pathForKeySearchFromCurrentRequestParameters
+{
+	NSDictionary *selectedKeyDict = [self.secondaryIndexesController selectedObjects][0];
+	
+	return [NSString stringWithFormat:@"buckets/%@/index/%@/%@",
+			self.requestParameters[@"bucket"],
+			[self indexNameFieldFromKeyDescription:selectedKeyDict],
+			selectedKeyDict[@"value"]];
+}
+
 
 - (AFHTTPClient*) httpClientFromCurrentRequestParameters
 {
@@ -141,16 +161,25 @@
 	{
 		NSString *headerName;
 		
-		headerName = [NSString stringWithFormat:@"X-Riak-Index-%@_%@",
-					  keyDescription[@"name"], [keyDescription[@"type"] isEqualToString:@"Binary" ]? @"bin":@"int"];
+		headerName = [self indexHeaderNameFieldFromKeyDescription:keyDescription];
 		
 		[inRequest addValue:keyDescription[@"value"] forHTTPHeaderField:headerName];
 	}
 }
 
+- (NSString*) indexHeaderNameFieldFromKeyDescription:(NSDictionary*) keyDescription
+{
+	return [NSString stringWithFormat:@"x-riak-index-%@", [self indexNameFieldFromKeyDescription:keyDescription]];
+}
+
+- (NSString*) indexNameFieldFromKeyDescription:(NSDictionary*) keyDescription
+{
+	return [NSString stringWithFormat:@"%@_%@", keyDescription[@"name"], [keyDescription[@"type"] isEqualToString:@"Binary" ]? @"bin":@"int"];
+}
+
 - (IBAction)clearSecondaryIndexes:(id)sender
 {
-	self.requestParameters[@"secondaryIndexes"] = [NSMutableArray array];
+	[self updateInterfaceWithHTTPResponse:nil];
 }
 
 - (void) updateSecondaryIndexesFromHTTPResponse:(NSHTTPURLResponse*) inResponse
@@ -161,12 +190,12 @@
 	{
 		if ([[headerName lowercaseString] hasPrefix:@"x-riak-index-"])
 		{
-			NSString *keyType;
 			NSString *keyName;
+			NSString *keyType;
 			
 			keyName = [headerName substringFromIndex:[@"x-riak-index-" length]];
 			keyType = [keyName substringFromIndex:keyName.length - 3]; // extract either 'bin' or 'int' suffix
-			keyName = [keyName substringToIndex:keyName.length - 4];  // get rid off '_bin' or '_int' sufix
+			keyName = [keyName substringToIndex:keyName.length - 4];  // remove '_bin' or '_int' sufix
 			
 			NSMutableDictionary *indexDescription = [NSMutableDictionary dictionary];
 
@@ -177,6 +206,43 @@
 			[self.secondaryIndexesController addObject:indexDescription];
 		}
 	}
+}
+
+- (IBAction)findSelectedIndexKey:(id)sender
+{
+	[[self httpClientFromCurrentRequestParameters]getPath:[self pathForKeySearchFromCurrentRequestParameters]
+											   parameters:nil
+												  success:^(AFHTTPRequestOperation *operation, id responseObject){
+													  NSError	*error;
+													  id		receivedObject;
+													  
+													  receivedObject = [NSJSONSerialization JSONObjectWithData:responseObject options:0 error:&error];
+													  if ([receivedObject isKindOfClass:[NSDictionary class]])
+													  {
+														  NSArray *foundKeys = receivedObject[@"keys"];
+														  
+														  if (foundKeys.count)
+														  {
+															  [self.searchResultsController setContent:foundKeys];
+															  [self.searchResultsPopover setBehavior:NSPopoverBehaviorTransient];
+															  [self.searchResultsPopover showRelativeToRect:[self.keySearchButton frame]
+																									 ofView:[self.keySearchButton superview]
+																							  preferredEdge:CGRectMinYEdge];
+														  }
+													  }
+												  }
+												  failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+													  [self updateInterfaceWithError:error HTTPResponse:[operation response]];
+												  }];
+}
+
+- (IBAction)getObjectForSelectedSearchResult:(id)sender
+{
+	NSString *selectedKey = [self.searchResultsController selectedObjects][0];
+	
+	self.requestParameters[@"key"] = selectedKey;
+	[self.searchResultsPopover close];
+	[self getAction:nil];
 }
 
 @end
