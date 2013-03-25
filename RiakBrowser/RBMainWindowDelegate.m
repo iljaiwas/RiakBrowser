@@ -17,6 +17,8 @@
 @property (assign) NSInteger			lastStatusCode;
 @property (strong) NSString				*lastErrorMessage;
 
+@property (weak) IBOutlet NSArrayController *secondaryIndexesController;
+
 @end
 
 @implementation RBMainWindowDelegate
@@ -32,7 +34,7 @@
 		self.requestParameters[@"port"] = @"8098";
 		self.requestParameters[@"bucket"] = @"my-bucket";
 		self.requestParameters[@"key"] = @"123";
-
+		self.requestParameters[@"secondaryIndexes"] = [NSMutableArray array];
     }
     return self;
 }
@@ -48,6 +50,7 @@
 		[request setHTTPBody:[[self.requestParameters[@"content"] string] dataUsingEncoding:NSUTF8StringEncoding]];
 		[request addValue:self.requestParameters[@"contentType"] forHTTPHeaderField:@"Content-Type"];
 	}
+	[self addSecondaryIndexesToRequest:request];
 	AFHTTPRequestOperation *operation = [client HTTPRequestOperationWithRequest:request
 																		success:^(AFHTTPRequestOperation *operation, id responseObject) {
 																			[self updateInterfaceWithHTTPResponse:[operation response]];
@@ -108,5 +111,45 @@
 	self.lastErrorMessage = [inError localizedDescription];
 }
 
+- (IBAction)generateKey:(id)sender
+{
+	// Keep 10.7 folks happy, restrained from using NSUUID for now
+	CFUUIDRef	uuidRef = CFUUIDCreate (kCFAllocatorDefault);
+	CFStringRef stringRef = CFUUIDCreateString (kCFAllocatorDefault, uuidRef);
+	
+	self.requestParameters[@"key"] = [(__bridge NSString*)stringRef copy];
+	
+	CFRelease (uuidRef);
+	CFRelease (stringRef);
+}
+
+- (IBAction)addSecondaryIndex:(id)sender
+{
+	NSMutableDictionary *indexDescription = [NSMutableDictionary dictionary];
+	
+	indexDescription[@"name"] = @"keyName";
+	indexDescription[@"value"] = @"keyValue";
+	indexDescription[@"type"] = @"Binary";
+
+	[self.secondaryIndexesController addObject:indexDescription];
+}
+
+- (void) addSecondaryIndexesToRequest:(NSMutableURLRequest*) inRequest
+{
+	for (NSDictionary *keyDescription in self.requestParameters[@"secondaryIndexes"])
+	{
+		NSString *headerName;
+		
+		headerName = [NSString stringWithFormat:@"X-Riak-Index-%@_%@",
+					  keyDescription[@"name"], [keyDescription[@"type"] isEqualToString:@"Binary" ]? @"bin":@"int"];
+		
+		[inRequest addValue:keyDescription[@"value"] forHTTPHeaderField:headerName];
+	}
+}
+
+- (IBAction)clearSecondaryIndexes:(id)sender
+{
+	self.requestParameters[@"secondaryIndexes"] = [NSMutableArray array];
+}
 
 @end
