@@ -2,6 +2,8 @@
 
 This is a basic OS X utility for interacting with the [Riak](http://basho.com/riak/) database.
 
+![Screenshot](https://raw.github.com/iljaiwas/RiakBrowser/master/Screenshot.png)
+
 ##What Riak Browser lets you do:
 
 * Store objects in a Riak database
