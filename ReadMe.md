@@ -56,4 +56,4 @@ Follow these steps to enable secondary indexes:
 
 ## Further Riak Reference
 
-You can learn a lot more about Riak from the [Riak Handbook](http://riakhandbook.com) by Matthias Meyer.
+You can learn a lot more about Riak from the [Riak Handbook](http://riakhandbook.com) by Mathias Meyer.
